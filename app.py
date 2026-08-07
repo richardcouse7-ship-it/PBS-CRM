@@ -820,7 +820,7 @@ def render_analytics_and_pipeline():
         return
 
     lead_options = {
-        row["id"]: f"ID {row['id']} — {row['business_name']} ({row['county']}, Score: {row.get('overall_score') or '—'}, Status: {row['status']})"
+        row["id"]: f"ID {row['id']} — {row['business_name']} ({row['county']}, Score: {row.get('overall_score') if pd.notna(row.get('overall_score')) else '—'}, Status: {row['status']})"
         for _, row in all_leads_df.iterrows()
     }
 
