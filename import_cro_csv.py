@@ -149,7 +149,7 @@ def run_import():
                 "Unclassified",
                 eircode_val,
                 75,
-                "Verified (Active Queue)",
+                "Pending Approval",
                 "CRO Register CSV",
                 "Direct B2B",
                 "CRO_IMPORT",
