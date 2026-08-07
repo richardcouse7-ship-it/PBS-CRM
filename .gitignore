@@ -1,0 +1,17 @@
+# Secrets
+.env
+
+# Data / generated
+leads.db
+streamlit_run.log
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Vendored/unrelated reference project (removed by cleanup, kept ignored in case it reappears)
+fire-enrich/
+
+# Local Claude Code settings
+.claude/settings.local.json
