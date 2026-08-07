@@ -178,7 +178,7 @@ def render_lead_card(lead: dict, key_prefix: str):
     audit_status = lead.get("audit_status")
     st.markdown(
         f"**Audit Result:** {audit_status_indicator(audit_status)} "
-        f"{audit_status or 'Unknown'} — Score: {score if score is not None else '—'}"
+        f"{audit_status or 'Unknown'} — Score: {score if pd.notna(score) else '—'}"
     )
     if lead.get("disqualification_reason"):
         st.caption(f"⚠️ Disqualification reason: {lead['disqualification_reason']}")
@@ -759,7 +759,7 @@ def render_analytics_and_pipeline():
                 score = lead.get("overall_score")
                 with st.container(border=True):
                     st.markdown(f"**{score_indicator(score)} {lead.get('business_name') or 'Unnamed'}**")
-                    st.caption(f"📍 {lead.get('county') or '—'} | Score: {score if score is not None else '—'}")
+                    st.caption(f"📍 {lead.get('county') or '—'} | Score: {score if pd.notna(score) else '—'}")
                     if lead.get("decision_maker_name"):
                         st.caption(f"👤 {lead['decision_maker_name']}")
 
@@ -1063,7 +1063,7 @@ def render_enrichment_hub(provider_label: str):
             ind_str = lead.get("industry") or "Unclassified"
             dm_str = lead.get("decision_maker_name") or "Not Identified"
             score = lead.get("overall_score")
-            score_str = f"Score: {score}" if score is not None else "Unscored"
+            score_str = f"Score: {score}" if pd.notna(score) else "Unscored"
             status_str = lead.get("audit_status") or "Pending Approval"
 
             card_title = f"🏢 {biz_name} ({county_str} | {ind_str}) — DM: {dm_str} ({score_str}) · {status_str}"
@@ -1479,7 +1479,7 @@ with tab_latest:
             title = (
                 f"{score_indicator(score)} {lead.get('business_name') or 'Unknown Business'} "
                 f"— {lead.get('decision_maker_name') or 'Decision maker not identified'} "
-                f"({score if score is not None else '—'}) · {lead.get('audit_status') or 'Unclassified'}"
+                f"({score if pd.notna(score) else '—'}) · {lead.get('audit_status') or 'Unclassified'}"
             )
             with st.expander(title):
                 render_lead_card(lead, key_prefix=f"latest_{lead.get('lead_id') or i}")
@@ -1579,6 +1579,7 @@ with tab_database:
 
         if st.button("💾 Save changes"):
             changed = 0
+            skipped_blank_name = 0
             original_rows = editor_df.set_index("id")[EDITABLE_COLUMNS].to_dict("index")
             for _, row in edited_df.iterrows():
                 row_id = int(row["id"])
@@ -1588,10 +1589,16 @@ with tab_database:
                     for col in EDITABLE_COLUMNS
                     if original.get(col) != row[col]
                 }
+                new_name = diff.get("business_name")
+                if "business_name" in diff and (pd.isna(new_name) or not str(new_name).strip()):
+                    skipped_blank_name += 1
+                    diff.pop("business_name")
                 if diff:
                     db.update_lead(row_id, diff)
                     changed += 1
             st.success(f"Updated {changed} lead(s).")
+            if skipped_blank_name:
+                st.warning(f"Skipped business name update for {skipped_blank_name} lead(s) — business name cannot be blank.")
             st.rerun()
 
         st.subheader("Lead Detail Cards")
@@ -1601,7 +1608,7 @@ with tab_database:
             title = (
                 f"{score_indicator(score)} {lead.get('business_name') or 'Unknown Business'} "
                 f"— {lead.get('decision_maker_name') or 'Decision maker not identified'} "
-                f"({int(score) if score is not None else '—'}) · {lead.get('audit_status') or 'Unclassified'} · {lead.get('status')}"
+                f"({int(score) if pd.notna(score) else '—'}) · {lead.get('audit_status') or 'Unclassified'} · {lead.get('status')}"
             )
             with st.expander(title):
                 render_lead_card(lead, key_prefix=f"db_{lead['id']}")
