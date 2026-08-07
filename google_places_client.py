@@ -78,17 +78,3 @@ def search_google_places(
     except Exception as e:
         print(f"Google Places API Search Error: {e}")
         return []
-
-
-def enrich_lead_via_google_places(
-    business_name: str,
-    county: str | None,
-    api_key: str,
-) -> dict | None:
-    """
-    Look up a single business on Google Places API (New) to enrich phone, website, eircode, and address.
-    """
-    if not business_name or not api_key:
-        return None
-    results = search_google_places(business_name, api_key, county=county, limit=1)
-    return results[0] if results else None

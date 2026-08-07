@@ -171,11 +171,6 @@ def update_lead(lead_id: int, fields: dict):
         conn.execute(f"UPDATE leads SET {set_clause} WHERE id = :id", fields)
 
 
-def delete_lead(lead_id: int):
-    with get_connection() as conn:
-        conn.execute("DELETE FROM leads WHERE id = ?", (lead_id,))
-
-
 def get_all_leads(
     county: str | None = None,
     industry: str | None = None,
@@ -497,21 +492,6 @@ def save_enriched_leads_batch(enriched_records: list[tuple[int, dict]]) -> int:
     return len(params_list)
 
 
-def mark_imported_leads_as_pending_approval() -> int:
-    """Update raw imported un-enriched leads to 'Pending Approval' audit status."""
-    with get_connection() as conn:
-        cur = conn.execute(
-            """
-            UPDATE leads 
-            SET audit_status = 'Pending Approval' 
-            WHERE (scrape_verified = 0 OR scrape_verified IS NULL) 
-              AND (decision_maker_name IS NULL OR decision_maker_name = '') 
-              AND (audit_status = 'Verified (Active Queue)' OR audit_status IS NULL)
-            """
-        )
-        return cur.rowcount
-
-
 def approve_lead(lead_id: int) -> None:
     """Mark a lead as manually approved and move to Verified Active Queue."""
     lead = get_lead_by_id(lead_id)
@@ -555,41 +535,6 @@ def search_pending_leads(
         df = pd.read_sql_query(query, conn, params=params + [limit, offset])
 
     return df.to_dict("records"), total_count
-
-
-def get_approved_leads(
-    county: str | None = None,
-    industry: str | None = None,
-    status: str | None = None,
-    min_score: int | None = None,
-    limit: int = 200,
-    offset: int = 0,
-) -> tuple[pd.DataFrame, int]:
-    """Fetch leads in Approved / Verified state."""
-    where_clause = "WHERE (audit_status = 'Verified (Active Queue)' OR scrape_verified = 1)"
-    params: list = []
-
-    if county and county != "All":
-        where_clause += " AND county = ?"
-        params.append(county)
-    if industry and industry != "All":
-        where_clause += " AND industry = ?"
-        params.append(industry)
-    if status and status != "All":
-        where_clause += " AND status = ?"
-        params.append(status)
-    if min_score is not None and min_score > 0:
-        where_clause += " AND overall_score >= ?"
-        params.append(min_score)
-
-    count_query = f"SELECT COUNT(*) FROM leads {where_clause}"
-    query = f"SELECT * FROM leads {where_clause} ORDER BY id DESC LIMIT ? OFFSET ?"
-
-    with get_connection() as conn:
-        total_count = conn.execute(count_query, params).fetchone()[0]
-        df = pd.read_sql_query(query, conn, params=params + [limit, offset])
-
-    return df, total_count
 
 
 
