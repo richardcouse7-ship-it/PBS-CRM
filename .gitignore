@@ -9,6 +9,7 @@ streamlit_run.log
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
 
 # Vendored/unrelated reference project (removed by cleanup, kept ignored in case it reappears)
 fire-enrich/

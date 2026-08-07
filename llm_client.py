@@ -9,8 +9,56 @@ display that.
 """
 
 import json
+import threading
 
 import anthropic
+
+# --------------------------------------------------------------------------
+# Anthropic usage / cost tracking
+#
+# Accumulates token usage across every client.messages.create()/stream() call
+# in this module so a batch run (Enrichment Hub, enrich_csv.py) can display
+# a running cost estimate. Thread-safe since enrichment runs across a
+# ThreadPoolExecutor. Anthropic-only: Gemini calls aren't tracked here since
+# per-token pricing differs and isn't part of this project's cost surface.
+# --------------------------------------------------------------------------
+
+_usage_lock = threading.Lock()
+_usage_totals = {"input_tokens": 0, "output_tokens": 0}
+
+# Claude Sonnet 5 standard pricing per million tokens (see ANTHROPIC_MODEL_ID below).
+ANTHROPIC_INPUT_PRICE_PER_MTOK = 3.00
+ANTHROPIC_OUTPUT_PRICE_PER_MTOK = 15.00
+
+
+def _record_usage(response) -> None:
+    """Accumulate token usage from an Anthropic Messages API response. Never raises."""
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return
+    with _usage_lock:
+        _usage_totals["input_tokens"] += getattr(usage, "input_tokens", 0) or 0
+        _usage_totals["output_tokens"] += getattr(usage, "output_tokens", 0) or 0
+
+
+def get_usage_totals() -> dict:
+    """Return accumulated Anthropic token usage plus an estimated USD cost since the last reset."""
+    with _usage_lock:
+        totals = dict(_usage_totals)
+    totals["estimated_cost_usd"] = round(
+        totals["input_tokens"] / 1_000_000 * ANTHROPIC_INPUT_PRICE_PER_MTOK
+        + totals["output_tokens"] / 1_000_000 * ANTHROPIC_OUTPUT_PRICE_PER_MTOK,
+        4,
+    )
+    return totals
+
+
+def reset_usage_totals() -> None:
+    """Zero the accumulated usage — call before starting a batch you want to measure."""
+    with _usage_lock:
+        _usage_totals["input_tokens"] = 0
+        _usage_totals["output_tokens"] = 0
+
 
 # --------------------------------------------------------------------------
 # Model IDs
@@ -453,6 +501,7 @@ def run_pipeline_anthropic(
             messages=[{"role": "user", "content": user_prompt}],
         ) as stream:
             response = stream.get_final_message()
+        _record_usage(response)
     except anthropic.AuthenticationError:
         return None, "", "Invalid ANTHROPIC_API_KEY."
     except anthropic.RateLimitError:
@@ -487,6 +536,7 @@ def generate_cold_email_sequence(api_key: str, lead: dict) -> tuple[str | None, 
             system=COLD_EMAIL_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
+        _record_usage(response)
     except anthropic.AuthenticationError:
         return None, "Invalid ANTHROPIC_API_KEY."
     except anthropic.RateLimitError:
@@ -524,6 +574,7 @@ def enrich_lead_with_scraped_context(api_key: str, raw_lead: dict, scraped_text:
             system=PHASE2_ENRICHMENT_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
         )
+        _record_usage(response)
     except anthropic.AnthropicError:
         return raw_lead
 
@@ -901,6 +952,7 @@ def enrich_single_lead(
                     system=system_prompt,
                     messages=[{"role": "user", "content": user_prompt}],
                 )
+                _record_usage(response)
                 full_text = "\n".join(block.text for block in response.content if block.type == "text")
             except anthropic.AnthropicError as e:
                 last_error = f"Anthropic Key #{k_idx+1}: {e}"

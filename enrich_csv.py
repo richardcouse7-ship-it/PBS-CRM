@@ -79,6 +79,7 @@ def main():
         return web_scraper.fetch_footer_contact_details(url)
 
     start = time.time()
+    llm_client.reset_usage_totals()
     results = llm_client.enrich_leads_batch_concurrent(
         leads,
         anthropic_keys=anthropic_keys,
@@ -107,6 +108,13 @@ def main():
         enriched_rows.append(row)
 
     print(f"Done in {elapsed:.1f}s — {ok_count} enriched, {err_count} failed.")
+
+    usage = llm_client.get_usage_totals()
+    if usage["input_tokens"] or usage["output_tokens"]:
+        print(
+            f"Anthropic usage: {usage['input_tokens']:,} input / {usage['output_tokens']:,} output tokens "
+            f"— est. ${usage['estimated_cost_usd']:.4f}"
+        )
 
     if not args.csv_only and to_save:
         updated = db.save_enriched_leads_batch(to_save)

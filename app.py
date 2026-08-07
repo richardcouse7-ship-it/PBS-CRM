@@ -548,6 +548,7 @@ if run_clicked:
         elif provider != "fluid" and not get_api_key(provider_key_name):
             st.error(f"No {provider_key_name} found. Set it in a `.env` file or in Streamlit secrets.")
         else:
+            llm_client.reset_usage_totals()
             with st.spinner(f"Sourcing {target_industry} leads in {target_county} via {provider_label}..."):
                 raw_leads, raw_text, error = llm_client.run_pipeline(
                     provider,
@@ -631,6 +632,12 @@ if run_clicked:
                     f"Processed {len(leads)} leads for {target_industry} in {target_county} — "
                     f"{inserted} new, {skipped} duplicate(s) skipped."
                 )
+                usage = llm_client.get_usage_totals()
+                if usage["input_tokens"] or usage["output_tokens"]:
+                    st.caption(
+                        f"💰 Anthropic usage this run: {usage['input_tokens']:,} input / "
+                        f"{usage['output_tokens']:,} output tokens — est. ${usage['estimated_cost_usd']:.4f}"
+                    )
 
 def render_analytics_and_pipeline():
     st.header("📊 Pipeline Analytics & Sales Kanban")
@@ -961,6 +968,7 @@ def render_enrichment_hub(provider_label: str):
             def custom_scraper(url):
                 return web_scraper.fetch_footer_contact_details(url)
 
+            llm_client.reset_usage_totals()
             batch_results = llm_client.enrich_leads_batch_concurrent(
                 target_leads,
                 anthropic_keys=anthropic_keys,
@@ -1005,7 +1013,9 @@ def render_enrichment_hub(provider_label: str):
             progress_bar.progress(1.0)
             status_ticker.success(f"🎉 Batch finished! Processed {len(target_leads)} leads in {round(elapsed, 1)}s (⚡ {leads_per_min} leads/min).")
 
-            m1, m2, m3, m4, m5 = metrics_container.columns(5)
+            usage = llm_client.get_usage_totals()
+
+            m1, m2, m3, m4, m5, m6 = metrics_container.columns(6)
             with m1:
                 st.metric("Total Enriched", enriched_count)
             with m2:
@@ -1016,6 +1026,8 @@ def render_enrichment_hub(provider_label: str):
                 st.metric("Emails Sourced", f"{email_found} ({round(email_found/max(1, len(target_leads))*100)}%)")
             with m5:
                 st.metric("Speedometer", f"⚡ {leads_per_min} leads/min")
+            with m6:
+                st.metric("Anthropic Cost (est.)", f"${usage['estimated_cost_usd']:.4f}")
 
             if approved_leads_list:
                 app_df = pd.DataFrame(approved_leads_list)
@@ -1135,6 +1147,7 @@ def render_enrichment_hub(provider_label: str):
             approved_leads_list = []
 
             overall_start_time = time.time()
+            llm_client.reset_usage_totals()
 
             while total_enriched < total_goal:
                 current_limit = min(batch_size, total_goal - total_enriched)
@@ -1230,7 +1243,9 @@ def render_enrichment_hub(provider_label: str):
 
             status_ticker.success(f"🏁 Rolling Enrichment Finished! Processed {total_enriched} lead(s) across {batch_number} batch(es) in {round(total_elapsed, 1)}s (⚡ {overall_speed} leads/min).")
 
-            m1, m2, m3, m4, m5 = metrics_container.columns(5)
+            usage = llm_client.get_usage_totals()
+
+            m1, m2, m3, m4, m5, m6 = metrics_container.columns(6)
             with m1:
                 st.metric("Total Enriched", total_enriched)
             with m2:
@@ -1241,6 +1256,8 @@ def render_enrichment_hub(provider_label: str):
                 st.metric("Emails Sourced", f"{email_found} ({round(email_found/max(1, total_enriched)*100)}%)")
             with m5:
                 st.metric("Phones Sourced", f"{phone_found} ({round(phone_found/max(1, total_enriched)*100)}%)")
+            with m6:
+                st.metric("Anthropic Cost (est.)", f"${usage['estimated_cost_usd']:.4f}")
 
             if approved_leads_list:
                 app_df = pd.DataFrame(approved_leads_list)
