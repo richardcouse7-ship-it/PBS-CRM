@@ -119,7 +119,7 @@ def get_api_key_pool(env_var_name: str) -> list[str]:
 
 
 def audit_status_indicator(audit_status: str | None) -> str:
-    if not audit_status:
+    if not audit_status or not isinstance(audit_status, str):
         return "⚪"
     status_lower = audit_status.lower()
     if "verified" in status_lower or "active queue" in status_lower:
@@ -178,7 +178,7 @@ def render_lead_card(lead: dict, key_prefix: str):
     audit_status = lead.get("audit_status")
     st.markdown(
         f"**Audit Result:** {audit_status_indicator(audit_status)} "
-        f"{audit_status or 'Unknown'} — Score: {score if pd.notna(score) else '—'}"
+        f"{audit_status if isinstance(audit_status, str) and audit_status else 'Unknown'} — Score: {score if pd.notna(score) else '—'}"
     )
     if lead.get("disqualification_reason"):
         st.caption(f"⚠️ Disqualification reason: {lead['disqualification_reason']}")
