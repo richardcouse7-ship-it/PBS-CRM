@@ -45,7 +45,7 @@ def fetch_footer_contact_details(url: str | None, timeout: float = REQUEST_TIMEO
         response = httpx.get(
             parsed.geturl(),
             headers={"User-Agent": USER_AGENT},
-            timeout=3.0,
+            timeout=timeout,
             follow_redirects=True,
         )
         response.raise_for_status()

@@ -12,6 +12,8 @@ persistence lives in database.py. This file is UI-only.
 
 import importlib
 import os
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import pandas as pd
@@ -492,7 +494,7 @@ with st.sidebar:
     )
 
     st.divider()
-    run_clicked = st.button("🚀 Run Pipeline", type="primary", use_container_width=True)
+    run_clicked = st.button("🚀 Run Pipeline", type="primary", width='stretch')
 
     st.divider()
     st.metric("Leads in Database", db.get_lead_count())
@@ -921,7 +923,7 @@ def render_enrichment_hub(provider_label: str):
             st.info("No leads matching selected criteria require enrichment.")
             return
 
-        if st.button("🚀 Launch High-Capacity Single Batch", type="primary", use_container_width=True):
+        if st.button("🚀 Launch High-Capacity Single Batch", type="primary", width='stretch'):
             anthropic_keys = get_api_key_pool("ANTHROPIC_API_KEY")
             gemini_keys = get_api_key_pool("GEMINI_API_KEY")
 
@@ -934,9 +936,6 @@ def render_enrichment_hub(provider_label: str):
             metrics_container = st.container()
 
             status_ticker.markdown("🌐 **Step 1/2:** Multi-threaded parallel fetching of company website contacts...")
-            
-            from concurrent.futures import ThreadPoolExecutor
-            import time
 
             start_time = time.time()
 
@@ -1019,7 +1018,6 @@ def render_enrichment_hub(provider_label: str):
                 st.metric("Speedometer", f"⚡ {leads_per_min} leads/min")
 
             if approved_leads_list:
-                import pandas as pd
                 app_df = pd.DataFrame(approved_leads_list)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 st.download_button(
@@ -1112,7 +1110,7 @@ def render_enrichment_hub(provider_label: str):
 
         st.info(f"⚡ **Continuous Rolling Engine Configured:** Will enrich in automated rolling batches of **{r_batch_size} leads** ({parallel_workers} parallel workers) until reaching **{r_max_leads} leads** or completing all matching records.")
 
-        if st.button("⚡ Launch Continuous Rolling Batch Engine", type="primary", use_container_width=True):
+        if st.button("⚡ Launch Continuous Rolling Batch Engine", type="primary", width='stretch'):
             anthropic_keys = get_api_key_pool("ANTHROPIC_API_KEY")
             gemini_keys = get_api_key_pool("GEMINI_API_KEY")
 
@@ -1135,9 +1133,6 @@ def render_enrichment_hub(provider_label: str):
             batch_number = 0
             processed_ids = []
             approved_leads_list = []
-
-            from concurrent.futures import ThreadPoolExecutor
-            import time
 
             overall_start_time = time.time()
 
@@ -1248,7 +1243,6 @@ def render_enrichment_hub(provider_label: str):
                 st.metric("Phones Sourced", f"{phone_found} ({round(phone_found/max(1, total_enriched)*100)}%)")
 
             if approved_leads_list:
-                import pandas as pd
                 app_df = pd.DataFrame(approved_leads_list)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 st.download_button(
@@ -1441,7 +1435,7 @@ with tab_latest:
         ]
         st.dataframe(
             table_df[display_cols],
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             column_config={
                 "overall_score": st.column_config.ProgressColumn(
@@ -1495,7 +1489,7 @@ with tab_database:
         )
     with scol2:
         st.markdown("<div style='padding-top:28px'></div>", unsafe_allow_html=True)
-        if st.button("✕ Clear", key="clear_name_search", use_container_width=True):
+        if st.button("✕ Clear", key="clear_name_search", width='stretch'):
             st.session_state["filter_name_search"] = ""
             st.rerun()
 
@@ -1554,7 +1548,7 @@ with tab_database:
                 "created_at": st.column_config.TextColumn("Added", disabled=True),
             },
             hide_index=True,
-            use_container_width=True,
+            width='stretch',
             key="db_editor",
         )
 
