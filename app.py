@@ -12,6 +12,7 @@ persistence lives in database.py. This file is UI-only.
 
 import importlib
 import os
+import textwrap
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -254,8 +255,14 @@ st.set_page_config(
 )
 
 st.markdown(
-    """
-    <meta name="description" content="Peninsula Ireland B2B Lead Sourcing CRM — Sourcing, verification, and 4-pass quality audit pipeline for HR, Employment Law, and Health & Safety compliance outreach in Ireland.">
+    '<meta name="description" content="Peninsula Ireland B2B Lead Sourcing CRM — '
+    'Sourcing, verification, and 4-pass quality audit pipeline for HR, Employment Law, '
+    'and Health & Safety compliance outreach in Ireland.">',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    textwrap.dedent(
+        """
     <style>
     /* Font & Icon Layout Stability (Eliminates CLS from Material Symbols & Source Sans VF) */
     @font-face {
@@ -357,7 +364,8 @@ st.markdown(
         outline-offset: 2px !important;
     }
     </style>
-    """,
+    """
+    ),
     unsafe_allow_html=True,
 )
 
