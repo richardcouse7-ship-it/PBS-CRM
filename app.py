@@ -564,12 +564,13 @@ if run_clicked:
                     google_places_search_fn=google_places_client.search_google_places,
                 )
 
-        if error:
-            st.error(error)
-        else:
-            st.session_state.last_run_raw_text = raw_text
+            if error:
+                st.error(error)
+                raw_leads = None
+            else:
+                st.session_state.last_run_raw_text = raw_text
 
-            if enable_cro_check and raw_leads:
+            if raw_leads and enable_cro_check:
                 cro_email = get_api_key("CRO_API_EMAIL")
                 cro_key = get_api_key("CRO_API_KEY")
                 if not cro_email or not cro_key:
@@ -600,7 +601,7 @@ if run_clicked:
                             anthropic_key, raw_leads, web_scraper.fetch_footer_contact_details
                         )
 
-            leads = [llm_client.flatten_lead(lead, target_industry) for lead in raw_leads]
+            leads = [llm_client.flatten_lead(lead, target_industry) for lead in (raw_leads or [])]
 
             if not leads:
                 st.warning("No leads could be parsed from the model's response.")

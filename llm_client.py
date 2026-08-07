@@ -9,7 +9,6 @@ display that.
 """
 
 import json
-from typing import Any
 
 import anthropic
 
@@ -539,6 +538,46 @@ def enrich_lead_with_scraped_context(api_key: str, raw_lead: dict, scraped_text:
     return updated
 
 
+def enrich_leads_phase2(
+    api_key: str,
+    raw_leads: list[dict],
+    fetch_footer_contact_details,
+) -> list[dict]:
+    """
+    Phase 2 batch re-verification: for each raw (nested-schema) lead with a
+    website, scrape its footer/contact area via the injected scraper and
+    re-audit it against that scraped text with enrich_lead_with_scraped_context.
+    Leads with no usable website, or whose scrape/call/parse fails, pass
+    through unchanged — enrich_lead_with_scraped_context never raises, so a
+    single bad lead can't break the batch.
+    """
+    if not raw_leads:
+        return []
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    def process(raw_lead):
+        website = (raw_lead.get("contact_details") or {}).get("website")
+        if not website or not isinstance(website, str) or not website.strip():
+            return raw_lead
+        scraped_text = fetch_footer_contact_details(website.strip()) if fetch_footer_contact_details else None
+        if not scraped_text:
+            return raw_lead
+        return enrich_lead_with_scraped_context(api_key, raw_lead, scraped_text)
+
+    results = [None] * len(raw_leads)
+    with ThreadPoolExecutor(max_workers=min(10, len(raw_leads))) as executor:
+        future_to_index = {executor.submit(process, lead): i for i, lead in enumerate(raw_leads)}
+        for fut in future_to_index:
+            index = future_to_index[fut]
+            try:
+                results[index] = fut.result()
+            except Exception:
+                results[index] = raw_leads[index]
+
+    return results
+
+
 # --------------------------------------------------------------------------
 # Enrichment Prompt Infrastructure
 # --------------------------------------------------------------------------
@@ -943,7 +982,7 @@ def enrich_lead_smart_hybrid(
         if err:
             err_messages.append(f"Secondary ({secondary_provider}): {err}")
 
-    return None, f"Smart Hybrid Enrichment failed. " + (" | ".join(err_messages) if err_messages else "No valid API keys.")
+    return None, "Smart Hybrid Enrichment failed. " + (" | ".join(err_messages) if err_messages else "No valid API keys.")
 
 
 def enrich_leads_batch_concurrent(
@@ -976,12 +1015,12 @@ def enrich_leads_batch_concurrent(
     results = []
     actual_workers = min(max_workers, len(leads))
     with ThreadPoolExecutor(max_workers=actual_workers) as executor:
-        futures = [executor.submit(process_lead, lead) for lead in leads]
-        for fut in futures:
+        future_to_lead = {executor.submit(process_lead, lead): lead for lead in leads}
+        for fut in future_to_lead:
             try:
                 results.append(fut.result())
             except Exception as e:
-                results.append((lead, None, str(e)))
+                results.append((future_to_lead[fut], None, str(e)))
 
     return results
 
